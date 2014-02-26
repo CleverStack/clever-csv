@@ -10,6 +10,8 @@ var expect = require( 'chai' ).expect
 describe( 'controllers.CsvController', function () {
     var ctrl;
 
+    this.timeout ( 25000 );
+
     before( function ( done ) {
         testEnv( function ( CsvController, CsvService ) {
             var req = {
@@ -125,7 +127,8 @@ describe( 'controllers.CsvController', function () {
 
     describe( '.examineAction()', function () {
 
-        it( 'should be able to return preparing data', function ( done ) {
+        //for run this test you need have have a valid link
+        it.skip( 'should be able to return preparing data', function ( done ) {
 
             ctrl.send = function ( result, status ) {
 

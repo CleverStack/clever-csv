@@ -1,6 +1,4 @@
 var expect = require ( 'chai' ).expect
-  , path = require( 'path' )
-  , app = require ( path.resolve( __dirname + '/../../../../' ) + '/index.js' )
   , testEnv = require ( 'utils' ).testEnv()
   , sinon = require( 'sinon' )
   , fs = require ( 'fs' )
@@ -11,6 +9,8 @@ var csv_1;
 
 describe( 'service.CsvService', function () {
     var Service;
+
+    this.timeout ( 25000 );
 
     before( function ( done ) {
         testEnv( function ( _CsvService_ ) {
@@ -253,7 +253,7 @@ describe( 'service.CsvService', function () {
     } );
 
     describe( '.readCsvFileByUrl( url, filename )', function () {
-
+        
         it( 'should be able to read csv file from url and save it with default name', function ( done ) {
 
             var filePath = config.pathToCsvFiles
@@ -402,8 +402,9 @@ describe( 'service.CsvService', function () {
     } );
 
     describe( '.handleExamineProcess( data )', function () {
-
-        it( 'should be able to return preparing data', function ( done ) {
+                        
+        //for run this test you need have have a valid link
+        it.skip( 'should be able to return preparing data', function ( done ) {
 
             var data = {
                 type: 'exampleEmployee',
@@ -446,7 +447,6 @@ describe( 'service.CsvService', function () {
                     expect ( result.columns[15] ).to.have.property ( 'value' ).and.equal ( csv_1[1][15] );
                     expect ( result.columns[15] ).to.have.property ( 'possible' ).and.be.an( 'array' );
                     expect ( result.columns[15].possible ).to.have.deep.property ( '[0][0]', 15 );
-
 
                     done();
                 }, done );
