@@ -1,6 +1,6 @@
 {
   "name": "clever-csv",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "dependencies": {
     "q": "1.0.0",
     "lodash": "2.4.1",
