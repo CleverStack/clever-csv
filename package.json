@@ -1,42 +1,42 @@
 {
-    "name": "clever-csv",
-    "version": "0.0.2",
-    "dependencies": {
-        "q": "1.0.0",
-        "lodash": "2.4.1",
-        "sequelize": "1.7.0-rc9",
-        "csv": "0.3.7",
-        "levenshtein": "1.0.4",
-        "async": "0.2.10"
-    },
-    "scripts": {
-        "test": "grunt test:unit"
-    },
-    "author": {
-        "name": "Clevertech",
-        "email": "info@clevertech.biz",
-        "web": "http://www.clevertech.biz"
-    },
-    "main": "module.js",
-    "description": "CleverStack CSV processing",
-    "keywords": [
-        "cleverstack",
-        "clevertech",
-        "cleverstack-module",
-        "cleverstack-backend",
-        "backend"
-    ],
-    "license": "BSD-2-Clause",
-    "repository": {
-        "type": "git",
-        "url": "git://github.com/CleverStack/clever-csv.git"
-    },
-    "bugs": {
-        "url": "https://github.com/CleverStack/clever-csv/issues"
-    },
-    "devDependencies": {
-        "chai": "1.9.0",
-        "mocha": "1.17.1",
-        "sinon": "1.8.2"
-    }
+  "name": "clever-csv",
+  "version": "0.0.2",
+  "dependencies": {
+    "q": "1.0.0",
+    "lodash": "2.4.1",
+    "sequelize": "^1.7.0",
+    "csv": "0.3.7",
+    "levenshtein": "1.0.4",
+    "async": "0.2.10"
+  },
+  "scripts": {
+    "test": "grunt test:unit"
+  },
+  "author": {
+    "name": "Clevertech",
+    "email": "info@clevertech.biz",
+    "web": "http://www.clevertech.biz"
+  },
+  "main": "module.js",
+  "description": "CleverStack CSV processing",
+  "keywords": [
+    "cleverstack",
+    "clevertech",
+    "cleverstack-module",
+    "cleverstack-backend",
+    "backend"
+  ],
+  "license": "BSD-2-Clause",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/CleverStack/clever-csv.git"
+  },
+  "bugs": {
+    "url": "https://github.com/CleverStack/clever-csv/issues"
+  },
+  "devDependencies": {
+    "chai": "1.9.0",
+    "mocha": "1.17.1",
+    "sinon": "1.8.2"
+  }
 }
