@@ -1,81 +1,53 @@
-module.exports = function ( CsvService ) {
+module.exports = function(Controller, Promise, Exceptions, CsvService) {
+  return Controller.extend({ service: CsvService },
+  {
+    typesAction: function() {
+      return CsvService.getAllPossibleTypes();
+    },
 
-    return ( require ( 'classes' ).Controller ).extend (
-        {
-            service: CsvService
-        },
-        /* @Prototype */
-        {
-            typesAction: function () {
-                CsvService
-                    .getAllPossibleTypes ()
-                    .then ( this.proxy ( 'handleServiceMessage' ) )
-                    .fail ( this.proxy ( 'handleException' ) );
-            },
+    examineAction: function () {
+      var data = {
+        url      : this.req.body.url,
+        type     : this.req.body.type,
+        options  : this.req.body.options  || {},
+        filename : this.req.body.filename || ''
+      };
 
-            examineAction: function () {
-                var data = {
-                    type: this.req.body.type,
-                    url: this.req.body.url,
-                    filename: this.req.body.filename || '',
-                    options: this.req.body.options || {}
-                };
+      if (!data.type || !data.url) {
+        return Promise.reject(new Exceptions.InvalidData('Invalid ' + (!data.type ? 'Type' : 'Url') + '.'));
+      }
 
-                if ( !data.type || !data.url ) {
-                    return this.send ( 'Insufficient data', 400 );
-                }
+      return CsvService.handleExamineProcess(data);
+    },
 
-                CsvService
-                    .handleExamineProcess ( data )
-                    .then ( this.proxy ( 'handleServiceMessage' ) )
-                    .fail ( this.proxy ( 'handleException' ) );
-            },
+    submitDraftAction: function() {
+      var data = {
+        type     : this.req.body.type,
+        path     : this.req.body.tmpCsvPath,
+        options  : this.req.body.options || {},
+        columns  : this.req.body.columns
+      };
 
-            submitDraftAction: function () {
-                var data = {
-                    columns: this.req.body.columns,
-                    path: this.req.body.tmpCsvPath,
-                    type: this.req.body.type,
-                    options: this.req.body.options || {}
-                };
+      if (!data.columns || !data.path || !data.type) {
+        return Promise.reject(new Exceptions.InvalidData('Invalid ' + (!data.type ? 'Type' : (!data.path ? 'Url' : 'Path')) + '.'));
+      }
 
-                if ( !data.columns || !data.path || !data.type ) {
-                    return this.send ( 'Insufficient data', 400 );
-                }
+      return CsvService.handleSubmitDraftProcess(data);
+    },
 
-                CsvService
-                    .handleSubmitDraftProcess ( data )
-                    .then ( this.proxy ( 'handleServiceMessage' ) )
-                    .fail ( this.proxy ( 'handleException' ) );
-            },
+    submitFinalAction: function () {
+      var data = {
+        type     : this.req.body.type,
+        path     : this.req.body.tmpCsvPath,
+        options  : this.req.body.options || {},
+        columns  : this.req.body.columns
+      };
 
-            submitFinalAction: function () {
-                var data = {
-                    columns: this.req.body.columns,
-                    path: this.req.body.tmpCsvPath,
-                    type: this.req.body.type,
-                    options: this.req.body.options || {}
-                };
+      if (!data.columns || !data.path || !data.type) {
+        return Promise.reject(new Exceptions.InvalidData('Invalid ' + (!data.type ? 'Type' : (!data.path ? 'Url' : 'Path')) + '.'));
+      }
 
-                if ( !data.columns || !data.path || !data.type ) {
-                    return this.send ( 'Insufficient data', 400 );
-                }
-
-                CsvService
-                    .handleSubmitFinalProcess ( data )
-                    .then ( this.proxy ( 'handleServiceMessage' ) )
-                    .fail ( this.proxy ( 'handleException' ) );
-            },
-
-            handleServiceMessage: function ( obj ) {
-
-                if ( obj.statuscode ) {
-                    this.send ( obj.message, obj.statuscode );
-                    return;
-                }
-
-                this.send ( obj, 200 );
-            }
-
-        } );
+      return CsvService.handleSubmitFinalProcess(data);
+    }
+  });
 };

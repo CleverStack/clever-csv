@@ -1,11 +1,9 @@
-var Module = require( 'classes' ).ModuleClass.extend( {
+var Module     = require('classes').Module;
 
-    configureApp: function ( app, express ) {
+var CsvModule  = Module.extend({
+  configureApp: function(app, express) {
+    app.use(express.static(this.config.pathToCsvFiles));
+  }
+});
 
-        app.use( express.static( this.config.pathToCsvFiles ) );
-
-    }
-
-} );
-
-module.exports = new Module( 'clever-csv', injector );
+module.exports = CsvModule;
