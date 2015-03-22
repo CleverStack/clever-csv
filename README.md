@@ -7,7 +7,7 @@ CleverStack CSV module
 
 ![CleverStack NodeJS ORM Module](http://cleverstack.github.io/assets/img/logos/node-seed-logo-clean.png "CleverStack CSV processing")
 <blockquote>
-This CleverStack Module provides CSV processing on the backend, which can be used to do things like important data that is in CSV format.
+This CleverStack Module provides CSV processing on the backend, which can be used to do things like import data that is in CSV format to your database.
 </blockquote>
 
 ## Documentation

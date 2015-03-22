@@ -5,6 +5,7 @@ var fs          = require('fs')
   , http        = require('http');
 
 module.exports  = function(Service, Promise, async, config, _) {
+  var csvConfig = config['clever-csv'];
 
   return Service.extend({
 
@@ -23,87 +24,78 @@ module.exports  = function(Service, Promise, async, config, _) {
       });
     },
 
-    getAllPossibleTypes: function () {
-      var deferred = Q.defer ()
-      , typesPath = config['clever-csv'].pathToCsvSchemaFiles
-      , result = [];
+    getAllPossibleTypes: function() {
+      var typesPath = csvConfig.pathToCsvSchemaFiles
+        , result    = [];
 
-      if (fs.existsSync (typesPath)) {
+      return new Promise(function(resolve, reject) {
+        if (fs.existsSync(typesPath)) {
+          fs.readdir(typesPath, function(err, files) {
 
-        fs.readdir (typesPath, function (err, files) {
+            if (err !== undefined && err !== null) {
+              reject(err);
+            } else {
+              files.forEach(function(typeFile) {
+                if (path.extname(typeFile) === '.json') {
+                  var file = [ typesPath, typeFile ].join('')
+                    , data = fs.readFileSync (file, 'utf8');
 
-          if (!!err) {
-            deferred.reject (err);
-          } else {
+                  result.push (JSON.parse (data));
+                }
+              });
 
-            files
-            .forEach (function (typeFile) {
-              if (path.extname (typeFile) === '.json') {
-                var file = [ typesPath, typeFile ].join('')
-                , data = fs.readFileSync (file, 'utf8');
-
-                result.push (JSON.parse (data));
-              }
-            });
-
-            deferred.resolve (result);
-          }
-        });
-      } else {
-        deferred.resolve({ statuscode: 403, message: 'no such directory' });
-      }
-
-      return deferred.promise;
+              resolve(result);
+            }
+          });
+        } else {
+          reject({ statusCode: 403, message: 'no such directory' });
+        }
+      });
     },
 
     readCsvSchemaFile: function(type) {
-      var deferred = Q.defer()
-      , file = [ config['clever-csv'].pathToCsvSchemaFiles, type, '.json' ].join ('');
+      var file = path.join(csvConfig.pathToCsvSchemaFiles, type + '.json');
 
-      if (fs.existsSync (file)) {
-
-        fs.readFile(file, 'utf8', function (err, data) {
-          if (!!err) {
-            deferred.reject (err);
-          } else {
-            deferred.resolve ({ schema: JSON.parse (data) });
-          }
-        });
-
-      } else {
-        deferred.reject ('Error: no such file');
-      }
-
-      return deferred.promise;
+      return new Promise(function(resolve, reject) {
+        if (fs.existsSync(file)) {
+          fs.readFile(file, 'utf8', function (err, data) {
+            if (err !== undefined && err !== null) {
+              reject(err);
+            } else {
+              resolve({
+                schema  : JSON.parse(data)
+              });
+            }
+          });
+        } else {
+          reject({ statusCode: 403, message: 'Error: no such file' });
+        }
+      });
     },
 
-    readCsvFileByUrl: function (url, filename) {
-      var deferred = Q.defer ()
-      , filename = filename || ''
-      , prefix = +new Date
-      , newPath = !!filename
-      ? [ config['clever-csv'].pathToCsvFiles, prefix, '_', filename, '.csv' ].join('')
-      : [ config['clever-csv'].pathToCsvFiles, prefix, '.csv' ].join('');
+    readCsvFileByUrl: function(url, fileName) {
+      fileName      = fileName || '';
 
-      if (fs.existsSync (config['clever-csv'].pathToCsvFiles)) {
-        var file = fs.createWriteStream (newPath);
+      return new Promise(function(resolve, reject) {
+        var prefix  = new Date()
+          , newPath = !!fileName ? path.join(csvConfig.pathToCsvFiles, prefix, '_', fileName + '.csv') : path.join(csvConfig.pathToCsvFiles, prefix + '.csv');
 
-        http
-        .get (url, function (response) {
-          var r = response.pipe (file);
-          r.on ('finish', function () {
-            deferred.resolve ({ path: newPath });
+        if (fs.existsSync (csvConfig.pathToCsvFiles)) {
+          var file  = fs.createWriteStream (newPath);
+
+          http
+          .get (url, function (response) {
+            var r   = response.pipe (file);
+            r.on ('finish', function () {
+              deferred.resolve ({ path: newPath });
+            });
+          }).on ('error', function (err) {
+            deferred.reject (err);
           });
-        }).on ('error', function (err) {
-          deferred.reject (err);
-        });
-      } else {
-        deferred.reject ('Error: no such directory');
-      }
-
-
-
-      return deferred.promise;
+        } else {
+          deferred.reject ('Error: no such directory');
+        }
+      });
     },
 
     guessHeadersByName: function (obj) {
