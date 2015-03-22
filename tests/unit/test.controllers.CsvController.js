@@ -1,520 +1,564 @@
-// Bootstrap the testing environmen
-var testEnv = require( 'utils' ).testEnv();
-
-var expect = require( 'chai' ).expect
-  , Q = require ( 'q' )
-  , config = require ( 'config' )[ 'clever-csv' ]
-  , fs = require ( 'fs' )
+var expect   = require('chai').expect
+  , config   = require('config')['clever-csv']
+  , fs       = require('fs')
+  , injector = require('injector')
+  , Controller
   , Service;
 
-describe( 'controllers.CsvController', function () {
-    var ctrl;
+describe('controllers.CsvController', function() {
+  var ctrl;
 
-    this.timeout ( 25000 );
+  this.timeout(25000);
 
-    before( function ( done ) {
-        testEnv( function ( CsvController, CsvService ) {
-            var req = {
-                params: { action: 'fakeAction'},
-                method: 'GET',
-                query: {}
-            };
+  function fakeResponse(cb) {
+    return {
+      json: function(code, message) {
+        setTimeout(function() {
+          cb(code, JSON.parse(JSON.stringify(message)));
+        }, 10);
+      },
 
-            var res = {
-                json: function () {}
-            };
+      send: function(code, message) {
+        setTimeout(function() {
+          cb(code, message);
+        }, 10);
+      }
+    };
+  }
 
-            var next = function () {};
+  function fakeRequest(req) {
+    req.method  = req.method || 'GET';
+    req.url     = req.url || ('/fakeAction');
+    req.query   = req.query || {};
+    req.body    = req.body || {};
+    req.params  = req.params || {};
 
-            ctrl = new CsvController( req, res, next );
+    return req;
+  }
 
-            Service = CsvService;
+  before(function(done) {
+    var CsvController = injector.getInstance('CsvController')
+      , CsvService    = injector.getInstance('CsvService');
 
-            done();
-        } );
-    } );
+    var req = {
+      params: { action: 'fakeAction'},
+      method: 'GET',
+      query: {}
+    };
 
-    afterEach( function ( done ) {
+    var res = {
+      json: function() {}
+    };
 
-        ctrl.req = {
-            params: { action: 'fakeAction'},
-            method: 'GET',
-            query: {},
-            body: {}
-        };
+    var next = function() {};
 
-        ctrl.res = {
-            json: function () {}
-        };
+    ctrl = new CsvController(req, res, next);
+
+    Service    = CsvService;
+    Controller = CsvController;
+
+    done();
+  });
+
+  afterEach(function(done) {
+    ctrl = null;
+    done();
+  });
+
+  describe('.typesAction()', function() {
+    it('should be able to get all possible types', function(done) {
+      var req = fakeRequest({
+        url: '/csvs/types',
+        params: {
+          action: 'types'
+        }
+      });
+
+      var res = fakeResponse(function(status, result) {
+        expect(status).to.equal(200);
+
+        expect(result).to.be.an('array').and.have.length.above(0);
+
+        var type = result[0];
+
+        expect(type).to.be.a('object').and.be.ok;
+        expect(type).to.have.property('name').and.be.ok;
+        expect(type).to.have.property('description').and.be.ok;
+        expect(type).to.have.property('service').and.be.ok;
+        expect(type).to.have.property('method').and.be.ok;
+        expect(type).to.have.property('fields').and.be.an('array');
 
         done();
+      });
+
+      ctrl = Controller.callback('newInstance')(req, res);
     });
 
-    describe( '.typesAction()', function () {
+    it('should be able to get empty array if directory do not have necessary files', function(done) {
+      var oldPath = config.pathToCsvSchemaFiles;
 
-        it( 'should be able to get all possible types', function ( done ) {
+      config.pathToCsvSchemaFiles = './modules/';
 
-            ctrl.send = function ( result, status ) {
+      var typesPath = config.pathToCsvSchemaFiles;
 
-                expect( status ).to.equal( 200 );
+      expect(oldPath).to.not.equal(typesPath);
 
-                expect( result ).to.be.an( 'array' ).and.have.length.above( 0 );
+      var req = fakeRequest({
+        url: '/csvs/types',
+        params: {
+          action: 'types'
+        }
+      });
 
-                var type = result[0];
+      var res = fakeResponse(function(status, result) {
+        expect(status).to.equal(200);
 
-                expect ( type ).to.be.a( 'object' ).and.be.ok;
-                expect ( type ).to.have.property ( 'name' ).and.be.ok;
-                expect ( type ).to.have.property ( 'description' ).and.be.ok;
-                expect ( type ).to.have.property ( 'service' ).and.be.ok;
-                expect ( type ).to.have.property ( 'method' ).and.be.ok;
-                expect ( type ).to.have.property ( 'fields' ).and.be.an( 'array' );
+        expect(result).to.be.an('array').and.be.empty;
 
-                done();
-            };
+        config.pathToCsvSchemaFiles = oldPath;
 
-            ctrl.typesAction();
-        } );
+        done();
+      });
 
-        it( 'should be able to get empty array if directory do not have necessary files', function ( done ) {
+      ctrl = Controller.callback('newInstance')(req, res);
+    });
 
-            var old_path = config.pathToCsvSchemaFiles;
+    it('should be able get error if directory for type file do not exist', function(done) {
 
-            config.pathToCsvSchemaFiles = './modules/';
+      var oldPath = config.pathToCsvSchemaFiles;
 
-            var typesPath = config.pathToCsvSchemaFiles;
+      config.pathToCsvSchemaFiles = oldPath + 'asasasasa/';
 
-            expect( old_path ).to.not.equal ( typesPath );
+      var typesPath = config.pathToCsvSchemaFiles;
 
-            ctrl.send = function ( result, status ) {
+      expect(oldPath).to.not.equal(typesPath);
 
-                expect( status ).to.equal( 200 );
+      var req = fakeRequest({
+        url: '/csvs/types',
+        params: {
+          action: 'types'
+        }
+      });
 
-                expect( result ).to.be.an( 'array' ).and.be.empty;
+      var res = fakeResponse(function(status, result) {
+        expect(status).to.equal(403);
 
-                config.pathToCsvSchemaFiles = old_path;
+        expect(result).to.be.an('string').and.equal('no such directory');
 
-                done();
-            };
+        config.pathToCsvSchemaFiles = oldPath;
 
-            ctrl.typesAction();
-        } );
+        done();
+      });
 
-        it( 'should be able get error if directory for type file do not exist', function ( done ) {
+      ctrl = Controller.callback('newInstance')(req, res);
+    });
+  });
 
-            var old_path = config.pathToCsvSchemaFiles;
+  describe('.examineAction()', function() {
 
-            config.pathToCsvSchemaFiles = old_path + 'asasasasa/';
-
-            var typesPath = config.pathToCsvSchemaFiles;
-
-            expect( old_path ).to.not.equal ( typesPath );
-
-            ctrl.send = function ( result, status ) {
-
-                expect( status ).to.equal( 403 );
-
-                expect( result ).to.be.an( 'string' ).and.be.ok;
-
-                config.pathToCsvSchemaFiles = old_path;
-
-                done();
-            };
-
-            ctrl.typesAction();
-        } );
-
-    } );
-
-    describe( '.examineAction()', function () {
-
+    it.skip('should be able to return preparing data', function(done) {
         //for run this test you need have have a valid link
-        it.skip( 'should be able to return preparing data', function ( done ) {
 
-            ctrl.send = function ( result, status ) {
+        ctrl.send = function(result, status) {
+
+          expect(status).to.equal(200);
+
+          expect(result).to.be.an('object').and.be.ok;
+          expect(result).to.have.property('columns').and.be.ok;
+          expect(result).to.have.property('tmpCsvPath').and.be.ok;
+
+          expect(result.tmpCsvPath).to.contain(config.pathToCsvFiles);
+          expect(result.tmpCsvPath).to.contain('myNewCsvFile');
+          expect(result.tmpCsvPath).to.contain('.csv');
+
+          expect(fs.existsSync(result.tmpCsvPath)).to.be.true;
+
+          expect(result.columns).to.be.an('array').and.have.length(18);
+          expect(result.columns[0]).to.be.an('object').and.be.ok;
+
+          expect(result.columns[0]).to.have.property('value').and.be.ok;
+          expect(result.columns[0]).to.have.property('possible').and.be.an('array');
+
+          done();
+        };
+
+        ctrl.req.body = {
+          type: 'exampleEmployee',
+          url: config.urlToTestCsvFile,
+          filename: 'myNewCsvFile',
+          options: {}
+        };
+
+        ctrl.examineAction();
+      });
+    it('should be able get error if insufficient url', function(done) {
+      var req = fakeRequest({
+        url    : '/csvs/examine',
+        method : 'POST',
+        body   : {
+          type     : 'exampleEmployee',
+          options  : {},
+          filename : 'myNewCsvFile'
+        },
+        params : {
+          action: 'examine'
+        }
+      });
+
+      var res = fakeResponse(function(status, result) {
+        expect(status).to.equal(400);
+
+        expect(result).to.be.an('object').and.have.property('message').and.equal('Invalid Url.');
+
+        done();
+      });
+
+      ctrl = Controller.callback('newInstance')(req, res);
+    });
+
+    it('should be able get error if insufficient type', function(done) {
+      var req = fakeRequest({
+        url    : '/csvs/examine',
+        method : 'POST',
+        body   : {
+          url      : config.urlToTestCsvFile,
+          options  : {},
+          filename : 'myNewCsvFile'
+        },
+        params : {
+          action: 'examine'
+        }
+      });
+
+      var res = fakeResponse(function(status, result) {
+        expect(status).to.equal(400);
+
+        expect(result).to.be.an('object').and.have.property('message').and.equal('Invalid Type.');
+
+        done();
+      });
+
+      ctrl = Controller.callback('newInstance')(req, res);
+    });
+
+    it('should be able get error if directory for save csv file do not exist', function(done) {
+      var oldPath = config.pathToCsvFiles;
+
+      config.pathToCsvFiles = oldPath + 'asasasasa/';
+
+      var req = fakeRequest({
+        url    : '/csvs/examine',
+        method : 'POST',
+        body   : {
+          url      : config.urlToTestCsvFile,
+          options  : {},
+          filename : 'myNewCsvFile',
+          type     : 'exampleEmployee'
+        },
+        params : {
+          action: 'examine'
+        }
+      });
 
-                expect( status ).to.equal( 200 );
+      var res = fakeResponse(function(status, result) {
+        expect(status).to.equal(500);
 
-                expect ( result ).to.be.an ( 'object' ).and.be.ok;
-                expect ( result ).to.have.property ( 'columns' ).and.be.ok;
-                expect ( result ).to.have.property ( 'tmpCsvPath' ).and.be.ok;
+        expect(result).to.be.an('object').and.be.ok;
+        expect(result).to.have.property('message').and.be.ok;
 
-                expect ( result.tmpCsvPath ).to.contain( config.pathToCsvFiles );
-                expect ( result.tmpCsvPath ).to.contain( 'myNewCsvFile' );
-                expect ( result.tmpCsvPath ).to.contain( '.csv' );
+        config.pathToCsvFiles = oldPath;
 
-                expect( fs.existsSync ( result.tmpCsvPath ) ).to.be.true;
+        done();
+      });
 
-                expect ( result.columns ).to.be.an( 'array' ).and.have.length( 18 );
-                expect ( result.columns[0] ).to.be.an( 'object' ).and.be.ok;
+      ctrl = Controller.callback('newInstance')(req, res);
+    });
 
-                expect ( result.columns[0] ).to.have.property ( 'value' ).and.be.ok;
-                expect ( result.columns[0] ).to.have.property ( 'possible' ).and.be.an( 'array' );
+    it('should be able get error if schema file do not exist', function(done) {
+      var req = fakeRequest({
+        url    : '/csvs/examine',
+        method : 'POST',
+        body   : {
+          url      : config.urlToTestCsvFile,
+          options  : {},
+          filename : 'myNewCsvFile',
+          type     : 'exampleEmployee_'
+        },
+        params : {
+          action: 'examine'
+        }
+      });
 
-                done();
-            };
+      var res = fakeResponse(function(status, result) {
+        expect(status).to.equal(403);
+        expect(result).to.be.an('string').and.be.eql('Error: no such file');
 
-            ctrl.req.body = {
-                type: 'exampleEmployee',
-                url: config.urlToTestCsvFile,
-                filename: 'myNewCsvFile',
-                options: {}
-            };
+        done();
+      });
 
-            ctrl.examineAction();
-        } );
+      ctrl = Controller.callback('newInstance')(req, res);
+    });
+  });
 
-        it( 'should be able get error if insufficient url', function ( done ) {
+  describe('.submitDraftAction()', function() {
 
-            ctrl.send = function ( result, status ) {
+    it.skip('should be able to get reorganized data', function(done) {
 
-                expect( status ).to.equal( 400 );
+      ctrl.send = function(result, status) {
 
-                expect( result ).to.be.an( 'string' ).and.equal( 'Insufficient data' );
+        expect(status).to.equal(200);
 
-                done();
-            };
+        expect(result).to.be.an('object').and.be.ok;
+        expect(result).to.have.property('columns').and.be.ok;
+        expect(result).to.have.property('data').and.be.ok;
 
-            ctrl.req.body = {
-                type: 'exampleEmployee',
-                filename: 'myNewCsvFile',
-                options: {}
-            };
+        var columns = result.columns;
 
-            ctrl.examineAction();
-        } );
+        expect(columns).to.be.an('array').and.have.length(15);
+        expect(columns[0]).to.be.an('object').and.be.ok;
+        expect(columns[0]).to.have.property('titleReadable').and.be.ok;
+        expect(columns[0]).to.have.property('title').and.be.ok;
+        expect(columns[0]).to.have.property('type').and.be.ok;
 
-        it( 'should be able get error if insufficient type', function ( done ) {
+        var data = result.data;
 
-            ctrl.send = function ( result, status ) {
+        expect(data).to.be.an('array').and.have.length.above(0);
+        expect(data[0]).to.be.an('object').and.be.ok;
+        expect(data[0]).to.have.property('firstName').and.be.ok;
+        expect(data[0]).to.have.property('lastName').and.be.ok;
+        expect(data[0]).to.have.property('fullName').and.be.ok;
+        expect(data[0]).to.have.property('cellPhone').and.be.ok;
+        expect(data[0]).to.have.property('notes').and.be.ok;
 
-                expect( status ).to.equal( 400 );
+        expect(data[0]).to.not.have.property('Name');
+        expect(data[0]).to.not.have.property('Skype ID');
+        expect(data[0]).to.not.have.property('secondaryLanguage');
 
-                expect( result ).to.be.an( 'string' ).and.equal( 'Insufficient data' );
+        done();
+      };
 
-                done();
-            };
+      ctrl.req.body = {
+        columns: [0, 1, 2, -1, 4, 5, 6, 7, 8, 9, -1, 11, 12, 13, 14, 15, 16, -1],
+        tmpCsvPath: [config.pathToTestCsvFiles, 'examplePersonal.csv'].join(''),
+        type: 'exampleEmployee'
+      };
 
-            ctrl.req.body = {
-                url: config.urlToTestCsvFile,
-                filename: 'myNewCsvFile',
-                options: {}
-            };
+      ctrl.submitDraftAction();
+    });
 
-            ctrl.examineAction();
-        } );
+    it.skip('should be able get error if insufficient columns', function(done) {
 
-        it( 'should be able get error if directory for save csv file do not exist', function ( done ) {
+      ctrl.send = function(result, status) {
 
-            var old_path = config.pathToCsvFiles;
+        expect(status).to.equal(400);
 
-            config.pathToCsvFiles = old_path + 'asasasasa/';
+        expect(result).to.be.an('string').and.equal('Insufficient data');
 
-            ctrl.send = function ( result, status ) {
+        done();
+      };
 
-                expect( status ).to.equal( 500 );
+      ctrl.req.body = {
+        tmpCsvPath: [config.pathToTestCsvFiles, 'examplePersonal.csv'].join(''),
+        type: 'exampleEmployee'
+      };
 
-                expect( result ).to.be.an( 'object' ).and.be.ok;
-                expect( result ).to.have.property( 'error' ).and.be.ok;
+      ctrl.submitDraftAction();
+    });
 
-                config.pathToCsvFiles = old_path;
+    it.skip('should be able get error if insufficient tmpCsvPath', function(done) {
 
-                done();
-            };
+      ctrl.send = function(result, status) {
 
-            ctrl.req.body = {
-                type: 'exampleEmployee',
-                url: config.urlToTestCsvFile,
-                filename: 'myNewCsvFile',
-                options: {}
-            };
+        expect(status).to.equal(400);
 
-            ctrl.examineAction();
-        } );
+        expect(result).to.be.an('string').and.equal('Insufficient data');
 
-        it( 'should be able get error if schema file do not exist', function ( done ) {
+        done();
+      };
 
-            ctrl.send = function ( result, status ) {
+      ctrl.req.body = {
+        columns: [0, 1, 2, -1, 4, 5, 6, 7, 8, 9, -1, 11, 12, 13, 14, 15, 16, -1],
+        type: 'exampleEmployee'
+      };
 
-                expect( status ).to.equal( 500 );
+      ctrl.submitDraftAction();
+    });
 
-                expect( result ).to.be.an( 'object' ).and.be.ok;
-                expect( result ).to.have.property( 'error' ).and.be.ok;
+    it.skip('should be able get error if insufficient type', function(done) {
 
-                done();
-            };
+      ctrl.send = function(result, status) {
 
-            ctrl.req.body = {
-                type: 'exampleEmployee_',
-                url: config.urlToTestCsvFile,
-                filename: 'myNewCsvFile',
-                options: {}
-            };
+        expect(status).to.equal(400);
 
-            ctrl.examineAction();
-        } );
+        expect(result).to.be.an('string').and.equal('Insufficient data');
 
-    } );
+        done();
+      };
 
-    describe( '.submitDraftAction()', function () {
+      ctrl.req.body = {
+        columns: [0, 1, 2, -1, 4, 5, 6, 7, 8, 9, -1, 11, 12, 13, 14, 15, 16, -1],
+        tmpCsvPath: [config.pathToTestCsvFiles, 'examplePersonal.csv'].join('')
+      };
 
-        it( 'should be able to get reorganized data', function ( done ) {
+      ctrl.submitDraftAction();
+    });
 
-            ctrl.send = function ( result, status ) {
+    it.skip('should be able get error if directory for read csv file do not exist', function(done) {
 
-                expect( status ).to.equal( 200 );
+      var oldPath = config.pathToTestCsvFiles;
 
-                expect ( result ).to.be.an ( 'object' ).and.be.ok;
-                expect ( result ).to.have.property ( 'columns' ).and.be.ok;
-                expect ( result ).to.have.property ( 'data' ).and.be.ok;
+      config.pathToTestCsvFiles = oldPath + 'asasasasa/';
 
-                var columns = result.columns;
+      ctrl.send = function(result, status) {
 
-                expect ( columns ).to.be.an ( 'array' ).and.have.length ( 15 );
-                expect ( columns[0] ).to.be.an ( 'object' ).and.be.ok;
-                expect ( columns[0] ).to.have.property ( 'titleReadable' ).and.be.ok;
-                expect ( columns[0] ).to.have.property ( 'title' ).and.be.ok;
-                expect ( columns[0] ).to.have.property ( 'type' ).and.be.ok;
+        expect(status).to.equal(500);
 
-                var data = result.data;
+        expect(result).to.be.an('object').and.be.ok;
+        expect(result).to.have.property('error').and.be.ok;
 
-                expect ( data ).to.be.an ( 'array' ).and.have.length.above ( 0 );
-                expect ( data[0] ).to.be.an ( 'object' ).and.be.ok;
-                expect ( data[0] ).to.have.property ( 'firstName' ).and.be.ok;
-                expect ( data[0] ).to.have.property ( 'lastName' ).and.be.ok;
-                expect ( data[0] ).to.have.property ( 'fullName' ).and.be.ok;
-                expect ( data[0] ).to.have.property ( 'cellPhone' ).and.be.ok;
-                expect ( data[0] ).to.have.property ( 'notes' ).and.be.ok;
+        config.pathToTestCsvFiles = oldPath;
 
-                expect ( data[0] ).to.not.have.property ( 'Name' );
-                expect ( data[0] ).to.not.have.property ( 'Skype ID' );
-                expect ( data[0] ).to.not.have.property ( 'secondaryLanguage' );
+        done();
+      };
 
-                done();
-            };
+      ctrl.req.body = {
+        columns: [0, 1, 2, -1, 4, 5, 6, 7, 8, 9, -1, 11, 12, 13, 14, 15, 16, -1],
+        tmpCsvPath: [config.pathToTestCsvFiles, 'examplePersonal.csv'].join(''),
+        type: 'exampleEmployee'
+      };
 
-            ctrl.req.body = {
-                columns: [ 0, 1, 2, -1, 4, 5, 6, 7, 8, 9, -1, 11, 12, 13, 14, 15, 16, -1 ],
-                tmpCsvPath: [ config.pathToTestCsvFiles, 'examplePersonal.csv' ].join( '' ),
-                type: 'exampleEmployee'
-            };
+      ctrl.submitDraftAction();
+    });
 
-            ctrl.submitDraftAction();
-        } );
+    it.skip('should be able get error if schema file do not exist', function(done) {
 
-        it( 'should be able get error if insufficient columns', function ( done ) {
+      ctrl.send = function(result, status) {
 
-            ctrl.send = function ( result, status ) {
+        expect(status).to.equal(500);
 
-                expect( status ).to.equal( 400 );
+        expect(result).to.be.an('object').and.be.ok;
+        expect(result).to.have.property('error').and.be.ok;
 
-                expect( result ).to.be.an( 'string' ).and.equal( 'Insufficient data' );
+        done();
+      };
 
-                done();
-            };
+      ctrl.req.body = {
+        columns: [0, 1, 2, -1, 4, 5, 6, 7, 8, 9, -1, 11, 12, 13, 14, 15, 16, -1],
+        tmpCsvPath: [config.pathToTestCsvFiles, 'examplePersonal.csv'].join(''),
+        type: 'exampleEmployee_'
+      };
 
-            ctrl.req.body = {
-                tmpCsvPath: [ config.pathToTestCsvFiles, 'examplePersonal.csv' ].join( '' ),
-                type: 'exampleEmployee'
-            };
+      ctrl.submitDraftAction();
+    });
+  });
 
-            ctrl.submitDraftAction();
-        } );
+  describe('.submitFinalAction()', function() {
 
-        it( 'should be able get error if insufficient tmpCsvPath', function ( done ) {
+    it.skip('should be able get error if insufficient columns', function(done) {
 
-            ctrl.send = function ( result, status ) {
+      ctrl.send = function(result, status) {
 
-                expect( status ).to.equal( 400 );
+        expect(status).to.equal(400);
 
-                expect( result ).to.be.an( 'string' ).and.equal( 'Insufficient data' );
+        expect(result).to.be.an('string').and.equal('Insufficient data');
 
-                done();
-            };
+        done();
+      };
 
-            ctrl.req.body = {
-                columns: [ 0, 1, 2, -1, 4, 5, 6, 7, 8, 9, -1, 11, 12, 13, 14, 15, 16, -1 ],
-                type: 'exampleEmployee'
-            };
+      ctrl.req.body = {
+        tmpCsvPath: [config.pathToTestCsvFiles, 'examplePersonal.csv'].join(''),
+        type: 'exampleEmployee'
+      };
 
-            ctrl.submitDraftAction();
-        } );
+      ctrl.submitFinalAction();
+    });
 
-        it( 'should be able get error if insufficient type', function ( done ) {
+    it.skip('should be able get error if insufficient tmpCsvPath', function(done) {
 
-            ctrl.send = function ( result, status ) {
+      ctrl.send = function(result, status) {
 
-                expect( status ).to.equal( 400 );
+        expect(status).to.equal(400);
 
-                expect( result ).to.be.an( 'string' ).and.equal( 'Insufficient data' );
+        expect(result).to.be.an('string').and.equal('Insufficient data');
 
-                done();
-            };
+        done();
+      };
 
-            ctrl.req.body = {
-                columns: [ 0, 1, 2, -1, 4, 5, 6, 7, 8, 9, -1, 11, 12, 13, 14, 15, 16, -1 ],
-                tmpCsvPath: [ config.pathToTestCsvFiles, 'examplePersonal.csv' ].join( '' )
-            };
+      ctrl.req.body = {
+        columns: [0, 1, 2, -1, 4, 5, 6, 7, 8, 9, -1, 11, 12, 13, 14, 15, 16, -1],
+        type: 'exampleEmployee'
+      };
 
-            ctrl.submitDraftAction();
-        } );
+      ctrl.submitFinalAction();
+    });
 
-        it( 'should be able get error if directory for read csv file do not exist', function ( done ) {
+    it.skip('should be able get error if insufficient type', function(done) {
 
-            var old_path = config.pathToTestCsvFiles;
+      ctrl.send = function(result, status) {
 
-            config.pathToTestCsvFiles = old_path + 'asasasasa/';
+        expect(status).to.equal(400);
 
-            ctrl.send = function ( result, status ) {
+        expect(result).to.be.an('string').and.equal('Insufficient data');
 
-                expect( status ).to.equal( 500 );
+        done();
+      };
 
-                expect( result ).to.be.an( 'object' ).and.be.ok;
-                expect( result ).to.have.property( 'error' ).and.be.ok;
+      ctrl.req.body = {
+        columns: [0, 1, 2, -1, 4, 5, 6, 7, 8, 9, -1, 11, 12, 13, 14, 15, 16, -1],
+        tmpCsvPath: [config.pathToTestCsvFiles, 'examplePersonal.csv'].join('')
+      };
 
-                config.pathToTestCsvFiles = old_path;
+      ctrl.submitFinalAction();
+    });
 
-                done();
-            };
+    it.skip('should be able get error if directory for read csv file do not exist', function(done) {
 
-            ctrl.req.body = {
-                columns: [ 0, 1, 2, -1, 4, 5, 6, 7, 8, 9, -1, 11, 12, 13, 14, 15, 16, -1 ],
-                tmpCsvPath: [ config.pathToTestCsvFiles, 'examplePersonal.csv' ].join( '' ),
-                type: 'exampleEmployee'
-            };
+      var oldPath = config.pathToTestCsvFiles;
 
-            ctrl.submitDraftAction();
-        } );
+      config.pathToTestCsvFiles = oldPath + 'asasasasa/';
 
-        it( 'should be able get error if schema file do not exist', function ( done ) {
+      ctrl.send = function(result, status) {
 
-            ctrl.send = function ( result, status ) {
+        expect(status).to.equal(500);
 
-                expect( status ).to.equal( 500 );
+        expect(result).to.be.an('object').and.be.ok;
+        expect(result).to.have.property('error').and.be.ok;
 
-                expect( result ).to.be.an( 'object' ).and.be.ok;
-                expect( result ).to.have.property( 'error' ).and.be.ok;
+        config.pathToTestCsvFiles = oldPath;
 
-                done();
-            };
+        done();
+      };
 
-            ctrl.req.body = {
-                columns: [ 0, 1, 2, -1, 4, 5, 6, 7, 8, 9, -1, 11, 12, 13, 14, 15, 16, -1 ],
-                tmpCsvPath: [ config.pathToTestCsvFiles, 'examplePersonal.csv' ].join( '' ),
-                type: 'exampleEmployee_'
-            };
+      ctrl.req.body = {
+        columns: [0, 1, 2, -1, 4, 5, 6, 7, 8, 9, -1, 11, 12, 13, 14, 15, 16, -1],
+        tmpCsvPath: [config.pathToTestCsvFiles, 'examplePersonal.csv'].join(''),
+        type: 'exampleEmployee'
+      };
 
-            ctrl.submitDraftAction();
-        } );
+      ctrl.submitFinalAction();
+    });
 
-    } );
+    it.skip('should be able get error if servece do not exist', function(done) {
 
-    describe( '.submitFinalAction()', function () {
+      ctrl.send = function(result, status) {
 
-        it( 'should be able get error if insufficient columns', function ( done ) {
+        expect(status).to.equal(500);
 
-            ctrl.send = function ( result, status ) {
+        expect(result).to.be.an('object').and.be.ok;
+        expect(result).to.have.property('error').and.be.ok;
 
-                expect( status ).to.equal( 400 );
+        done();
+      };
 
-                expect( result ).to.be.an( 'string' ).and.equal( 'Insufficient data' );
+      ctrl.req.body = {
+        columns: [0, 1, 2, -1, 4, 5, 6, 7, 8, 9, -1, 11, 12, 13, 14, 15, 16, -1],
+        tmpCsvPath: [config.pathToTestCsvFiles, 'examplePersonal.csv'].join(''),
+        type: 'exampleEmployee'
+      };
 
-                done();
-            };
+      ctrl.submitFinalAction();
+    });
 
-            ctrl.req.body = {
-                tmpCsvPath: [ config.pathToTestCsvFiles, 'examplePersonal.csv' ].join( '' ),
-                type: 'exampleEmployee'
-            };
+  });
 
-            ctrl.submitFinalAction();
-        } );
-
-        it( 'should be able get error if insufficient tmpCsvPath', function ( done ) {
-
-            ctrl.send = function ( result, status ) {
-
-                expect( status ).to.equal( 400 );
-
-                expect( result ).to.be.an( 'string' ).and.equal( 'Insufficient data' );
-
-                done();
-            };
-
-            ctrl.req.body = {
-                columns: [ 0, 1, 2, -1, 4, 5, 6, 7, 8, 9, -1, 11, 12, 13, 14, 15, 16, -1 ],
-                type: 'exampleEmployee'
-            };
-
-            ctrl.submitFinalAction();
-        } );
-
-        it( 'should be able get error if insufficient type', function ( done ) {
-
-            ctrl.send = function ( result, status ) {
-
-                expect( status ).to.equal( 400 );
-
-                expect( result ).to.be.an( 'string' ).and.equal( 'Insufficient data' );
-
-                done();
-            };
-
-            ctrl.req.body = {
-                columns: [ 0, 1, 2, -1, 4, 5, 6, 7, 8, 9, -1, 11, 12, 13, 14, 15, 16, -1 ],
-                tmpCsvPath: [ config.pathToTestCsvFiles, 'examplePersonal.csv' ].join( '' )
-            };
-
-            ctrl.submitFinalAction();
-        } );
-
-        it( 'should be able get error if directory for read csv file do not exist', function ( done ) {
-
-            var old_path = config.pathToTestCsvFiles;
-
-            config.pathToTestCsvFiles = old_path + 'asasasasa/';
-
-            ctrl.send = function ( result, status ) {
-
-                expect( status ).to.equal( 500 );
-
-                expect( result ).to.be.an( 'object' ).and.be.ok;
-                expect( result ).to.have.property( 'error' ).and.be.ok;
-
-                config.pathToTestCsvFiles = old_path;
-
-                done();
-            };
-
-            ctrl.req.body = {
-                columns: [ 0, 1, 2, -1, 4, 5, 6, 7, 8, 9, -1, 11, 12, 13, 14, 15, 16, -1 ],
-                tmpCsvPath: [ config.pathToTestCsvFiles, 'examplePersonal.csv' ].join( '' ),
-                type: 'exampleEmployee'
-            };
-
-            ctrl.submitFinalAction();
-        } );
-
-        it( 'should be able get error if servece do not exist', function ( done ) {
-
-            ctrl.send = function ( result, status ) {
-
-                expect( status ).to.equal( 500 );
-
-                expect( result ).to.be.an( 'object' ).and.be.ok;
-                expect( result ).to.have.property( 'error' ).and.be.ok;
-
-                done();
-            };
-
-            ctrl.req.body = {
-                columns: [ 0, 1, 2, -1, 4, 5, 6, 7, 8, 9, -1, 11, 12, 13, 14, 15, 16, -1 ],
-                tmpCsvPath: [ config.pathToTestCsvFiles, 'examplePersonal.csv' ].join( '' ),
-                type: 'exampleEmployee'
-            };
-
-            ctrl.submitFinalAction();
-        } );
-
-    } );
-
-} );
+});
