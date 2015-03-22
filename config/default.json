@@ -1,9 +1,9 @@
 {
   "clever-csv": {
-    "urlToTestCsvFile"      : "http://r1.fayloobmennik.net/files/go/131866713.html?check=41553158aa6e4dbb7028f016cb6b2e3b&file=3550297"
+    "urlToTestCsvFile"      : "http://r1.fayloobmennik.net/files/go/131866713.html?check=41553158aa6e4dbb7028f016cb6b2e3b&file=3550297",
     "pathToCsvFiles"        : "./modules/clever-csv/files/csv/",
     "pathToTestCsvFiles"    : "./modules/clever-csv/files/tests/",
     "pathToTypesCsvFiles"   : "./modules/clever-csv/schema/csv/",
-    "pathToCsvSchemaFiles"  : "./modules/clever-csv/files/schema/",
+    "pathToCsvSchemaFiles"  : "./modules/clever-csv/files/schema/"
   }
 }

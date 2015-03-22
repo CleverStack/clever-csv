@@ -2,7 +2,8 @@ var fs          = require('fs')
   , lev         = require('levenshtein')
   , csv         = require('csv')
   , path        = require('path')
-  , http        = require('http');
+  , http        = require('http')
+  , injector    = require('injector');
 
 module.exports  = function(Service, Promise, async, config, _) {
   var csvConfig = config['clever-csv'];
@@ -21,7 +22,8 @@ module.exports  = function(Service, Promise, async, config, _) {
         } else {
           reject('Error: no such file');
         }
-      });
+      }
+      .bind(this));
     },
 
     getAllPossibleTypes: function() {
@@ -50,7 +52,8 @@ module.exports  = function(Service, Promise, async, config, _) {
         } else {
           reject({ statusCode: 403, message: 'no such directory' });
         }
-      });
+      }
+      .bind(this));
     },
 
     readCsvSchemaFile: function(type) {
@@ -70,7 +73,8 @@ module.exports  = function(Service, Promise, async, config, _) {
         } else {
           reject({ statusCode: 403, message: 'Error: no such file' });
         }
-      });
+      }
+      .bind(this));
     },
 
     readCsvFileByUrl: function(url, fileName) {
@@ -78,226 +82,226 @@ module.exports  = function(Service, Promise, async, config, _) {
 
       return new Promise(function(resolve, reject) {
         var prefix  = new Date()
-          , newPath = !!fileName ? path.join(csvConfig.pathToCsvFiles, prefix, '_', fileName + '.csv') : path.join(csvConfig.pathToCsvFiles, prefix + '.csv');
+          , newPath = path.join(csvConfig.pathToCsvFiles, prefix);
+
+        newPath     = path.join(newPath, (!!fileName ? path.join(csvConfig.pathToCsvFiles, prefix, '_', fileName + '.csv') : path.join(csvConfig.pathToCsvFiles, prefix + '.csv')));
 
         if (fs.existsSync (csvConfig.pathToCsvFiles)) {
-          var file  = fs.createWriteStream (newPath);
+          var file  = fs.createWriteStream(newPath);
 
           http
-          .get (url, function (response) {
-            var r   = response.pipe (file);
-            r.on ('finish', function () {
-              deferred.resolve ({ path: newPath });
-            });
-          }).on ('error', function (err) {
-            deferred.reject (err);
-          });
+            .get(url, function(response) {
+              response
+                .pipe(file)
+                .on('finish', function() {
+                  resolve({ path: newPath });
+                });
+            })
+            .on('error', reject);
         } else {
-          deferred.reject ('Error: no such directory');
+          reject('Error: no such directory');
         }
-      });
+      }
+      .bind(this));
     },
 
-    guessHeadersByName: function (obj) {
-      var deferred = Q.defer ()
-      , headers = obj.csv[0]
-      , requiredHeaders = _.pluck (obj.schema.fields, 'display')
-      , mapping = []
-      , matrix = [];
+    guessHeadersByName: function(obj) {
+      return new Promise(function(resolve) {
+        var headers         = obj.csv[0]
+          , matrix          = []
+          , requiredHeaders = _.pluck(obj.schema.fields, 'display');
 
-      headers.forEach (function (header, i) {
-        var dist = []
-        , els = [];
+        headers.forEach(function(header, i) {
+          var dist = []
+            , els  = [];
 
-        requiredHeaders.forEach (function(possibleHeader, j) {
-          dist.push ({
-            ind: i,
-            j: j,
-            lev: lev (header, possibleHeader),
-            possible: possibleHeader
+          requiredHeaders.forEach(function(possibleHeader, j) {
+            dist.push({
+              ind      : i,
+              j        : j,
+              lev      : lev(header, possibleHeader),
+              possible : possibleHeader
+            });
           });
 
-        });
+          dist.sort(function(a, b) {
+            if (a.lev < b.lev) {
+              return -1;
+            } else if (a.lev > b.lev) {
+              return 1;
+            } else {
+              return 0;
+            }
+          });
 
-        dist.sort (function (a, b) {
-          if (a.lev < b.lev) return -1;
-          if (a.lev > b.lev) return 1;
-          return 0;
-        });
+          var value = obj.csv[1][dist[i].ind];
 
-        var value = obj.csv[ 1 ][ dist[ i ].ind ];
-
-        for (var k in dist) {
-          el = dist[ k ].possible;
-          els.push ([ dist[ k ].j, el ]);
-        }
-
-        els.push([ -1, "--Not Match--" ]);
-
-        matrix.push ({ value: value, possible: els });
-      });
-
-      deferred.resolve (matrix);
-
-      return deferred.promise;
-    },
-
-    handleExamineProcess: function (data) {
-      var deferred = Q.defer ()
-      , service = this
-      , result = {}
-      , schema, path;
-
-      service
-      .readCsvSchemaFile (data.type)
-      .then (function(res) {
-        schema = res.schema;
-        return service.readCsvFileByUrl (data.url, data.filename)
-      })
-      .then (function(res) {
-        path = res.path;
-        return service.uploadFromFile (path, data.options)
-      })
-      .then (function(csv) {
-        return service.guessHeadersByName ({ csv: csv, schema: schema })
-      })
-      .then (function(column) {
-        deferred.resolve ({columns: column, tmpCsvPath: path });
-      })
-      .fail (deferred.reject);
-
-      return deferred.promise;
-    },
-
-    reorganizeDataByColumns: function (data) {
-      var deferred = Q.defer ()
-      , result = {
-        columns: [],
-        data: []
-      };
-
-            //columns
-            data.columns
-            .forEach(function (ind) {
-
-              ind = parseInt (ind);
-
-              if (ind >= 0) {
-                var field = data.schema.fields[ ind ];
-
-                result.columns.push ({
-                  titleReadable: field.display,
-                  title: field.name,
-                  type: field.type
-                });
-              }
-            });
-
-            //data from csv
-            data.csv
-            .forEach(function (row, rowNum) {
-              if (rowNum !== 0) {
-
-                var el = {};
-
-                data.columns
-                .forEach(function (ind, i) {
-
-                  ind = parseInt (ind);
-
-                  if (ind >= 0) {
-                    var field = data.schema.fields[ i ].name;
-                    el[ field ] = data.csv[ rowNum ][ ind ];
-                  }
-                });
-
-                result.data.push (el);
-              }
-            });
-
-            deferred.resolve (result);
-
-            return deferred.promise;
-          },
-
-          handleSubmitDraftProcess: function (data) {
-            var deferred = Q.defer ()
-            , service = this
-            , schema;
-
-            service
-            .readCsvSchemaFile (data.type)
-            .then (function(res) {
-              schema = res.schema;
-              return service.uploadFromFile (data.path, data.options)
-            })
-            .then (function(csv) {
-              return service.reorganizeDataByColumns ({ csv: csv, schema: schema, columns: data.columns })
-            })
-            .then (function(result) {
-              deferred.resolve (result);
-            })
-            .fail (deferred.reject);
-
-            return deferred.promise;
-          },
-
-          saveData: function (schema, data) {
-            var deferred = Q.defer ()
-            , service = schema.service
-            , method = schema.method
-            , result = {};
-
-            injector._resolve (service, function (err, name, _service) {
-              if (!!err) {
-                deferred.resolve ({ statuscode: 500, message: err.toString() });
-              } else {
-                async.eachSeries (data, function (row, next) {
-                  _service[ method ] ({ row: row }).then (function () {
-                    next ();
-                  }, next);
-                }, function (err) {
-                  if (!!err) {
-                    deferred.resolve ({ statuscode: 500, message: err.toString() });
-                  } else {
-                    deferred.resolve ({ statuscode: 200, message: 'data has been saved' });
-                  }
-                });
-              }
-
-            });
-
-            return deferred.promise;
-          },
-
-          handleSubmitFinalProcess: function (data) {
-            var deferred = Q.defer ()
-            , service = this
-            , schema;
-
-            service
-            .readCsvSchemaFile (data.type)
-            .then (function(res) {
-              schema = res.schema;
-              return service.uploadFromFile (data.path, data.options)
-            })
-            .then (function(csv) {
-              return service.reorganizeDataByColumns ({ csv: csv, schema: schema, columns: data.columns })
-            })
-            .then (function(prData) {
-              return service.saveData (schema, prData.data)
-            })
-            .then (function(result) {
-              deferred.resolve (result);
-            })
-            .fail (deferred.reject);
-
-            return deferred.promise;
+          for (var k in dist) {
+            els.push([dist[k].j, dist[k].possible]);
           }
 
+          els.push([-1, '--Not Match--']);
+
+          matrix.push({value: value, possible: els});
         });
 
-CsvService.instance = new CsvService ();
+        resolve(matrix);
+      }
+      .bind(this));
+    },
 
-return CsvService.instance;
+    handleExamineProcess: function(data) {
+      var schema
+        , filePath;
+
+      return new Promise(function(resolve, reject) {
+        this
+        .readCsvSchemaFile(data.type)
+        .then(this.proxy(function(res) {
+          schema = res.schema;
+          return this.readCsvFileByUrl(data.url, data.filename);
+        }))
+        .then(this.proxy(function(res) {
+          filePath = res.path;
+          return this.uploadFromFile(path, data.options);
+        }))
+        .then(this.proxy(function(csv) {
+          return this.guessHeadersByName({csv: csv, schema: schema});
+        }))
+        .then(function(column) {
+          resolve({
+            columns    : column,
+            tmpCsvPath : filePath
+          });
+        })
+        .catch(reject);
+      }
+      .bind(this));
+    },
+
+    reorganizeDataByColumns: function(data) {
+      var result = {
+        data    : [],
+        columns : []
+      };
+
+      return new Promise(function(resolve) {
+        data.columns.forEach(function(ind) {
+          ind = parseInt(ind, 10);
+          if (ind >= 0) {
+            var field = data.schema.fields[ind];
+
+            result.columns.push ({
+              type          : field.type,
+              title         : field.name,
+              titleReadable : field.display
+            });
+          }
+        });
+
+        data.csv.forEach(function(row, rowNum) {
+          var el = {};
+
+          if (rowNum !== 0) {
+            data.columns.forEach(function(ind, i) {
+              ind = parseInt(ind, 10);
+              if (ind >= 0) {
+                el[data.schema.fields[i].name] = data.csv[rowNum][ind];
+              }
+            });
+
+            result.data.push(el);
+          }
+        });
+
+        resolve(result);
+      }
+      .bind(this));
+    },
+
+    handleSubmitDraftProcess: function(data) {
+      var schema;
+
+      return new Promise(function(resolve, reject) {
+        this
+        .readCsvSchemaFile(data.type)
+        .then(this.proxy(function(res) {
+          schema = res.schema;
+          return this.uploadFromFile(data.path, data.options);
+        }))
+        .then (this.proxy(function(csv) {
+          return this.reorganizeDataByColumns({
+            csv     : csv,
+            schema  : schema,
+            columns : data.columns
+          });
+        }))
+        .then(resolve)
+        .catch(reject);
+      }
+      .bind(this));
+    },
+
+    saveData: function (schema, data) {
+      return new Promise(function(resolve, reject) {
+        injector._resolve(schema.service, function(err, name, _service) {
+          if (!!err) {
+            resolve({
+              message        : err.toString(),
+              statusCode     : 500
+            });
+          } else {
+            async.eachSeries(
+              data,
+              function eachRow(row, next) {
+                _service[schema.method]({row: row}).then(function () {
+                  next();
+                }, next);
+              },
+              function (err) {
+                if (!!err) {
+                  resolve({
+                    message    : err.toString(),
+                    statusCode : 500
+                  });
+                } else {
+                  resolve({
+                    message    : 'data has been saved',
+                    statusCode : 200
+                  });
+                }
+              }
+            );
+          }
+        });
+      }
+      .bind(this));
+    },
+
+    handleSubmitFinalProcess: function (data) {
+      var schema;
+
+      return new Promise(function(resolve, reject) {
+        this
+        .readCsvSchemaFile(data.type)
+        .then(this.proxy(function(res) {
+          schema = res.schema;
+          return this.uploadFromFile(data.path, data.options);
+        }))
+        .then(this.proxy(function(csv) {
+          return this.reorganizeDataByColumns({
+            csv     : csv,
+            schema  : schema,
+            columns : data.columns
+          });
+        }))
+        .then(this.proxy(function(prData) {
+          return this.saveData(schema, prData.data);
+        }))
+        .then(resolve)
+        .fail(reject);
+      }
+      .bind(this));
+    }
+  });
 };
