@@ -1,7 +1,7 @@
 {
   "name"        : "clever-csv",
   "description" : "CleverStack CSV processing",
-  "version"     : "0.9.0",
+  "version"     : "1.0.0",
   "license"     : "MIT",
   "main"        : "module",
   "author": {
@@ -32,9 +32,9 @@
   },
   "keywords": [
     "cleverstack",
-    "clevertech",
     "cleverstack-module",
     "cleverstack-backend",
+    "import",
     "backend",
     "csv",
     "levenshtein"
